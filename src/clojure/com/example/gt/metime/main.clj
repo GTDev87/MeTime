@@ -10,13 +10,15 @@
            (java.util Calendar)
            (android.app Activity)
            (android.app DatePickerDialog DatePickerDialog$OnDateSetListener)
+           (android.app TimePickerDialog TimePickerDialog$OnTimeSetListener)
            (android.app DialogFragment)))
 
 (declare add-event)
 (declare date-picker)
+(declare time-picker)
 
-(defn show-picker [activity dp]
-  (. dp show (. activity getFragmentManager) "datePicker"))
+(defn show-picker [activity dp picker-type]
+  (. dp show (. activity getFragmentManager) picker-type))
 
 (def listing (atom (sorted-map)))
 
@@ -42,12 +44,20 @@
       :id ::location}]
     [:linear-layout {:orientation :horizontal}
       [:text-view {
+        :hint "Goal (Time)",
+        :id ::time}]
+      [:button {
+        :text "...",
+        :on-click (fn [_] (show-picker activity
+          (time-picker activity), "timePicker"))}]]
+    [:linear-layout {:orientation :horizontal}
+      [:text-view {
         :hint "Event date",
         :id ::date}]
       [:button {
         :text "...",
         :on-click (fn [_] (show-picker activity
-          (date-picker activity)))}]]
+          (date-picker activity) "datePicker"))}]]
     [:button {
       :text "+ Event",
       :on-click (fn [_] (add-event activity))}]
@@ -85,7 +95,15 @@
         (DatePickerDialog. activity this year month day)))
     (onDateSet [view year month day]
       (set-elmt activity ::date
-                (format "%d%02d%02d" year (inc month) day)))))
+        (format "%d%02d%02d" year (inc month) day)))))
+
+(defn time-picker [activity]
+  (proxy [DialogFragment TimePickerDialog$OnTimeSetListener] []
+    (onCreateDialog [savedInstanceState]
+      (TimePickerDialog. activity this 0 0 true))
+    (onTimeSet [view hourOfDay minute]
+      (set-elmt activity ::time
+        (format "%02d:%02d" hourOfDay minute)))))
 
 (defactivity com.example.gt.metime.MainActivity
   :key :main

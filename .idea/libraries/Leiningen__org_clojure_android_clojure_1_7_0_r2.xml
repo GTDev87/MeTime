@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: org.clojure-android/clojure:1.7.0-r2">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/org/clojure-android/clojure/1.7.0-r2/clojure-1.7.0-r2.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

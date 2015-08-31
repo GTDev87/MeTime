@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ReplState" timestamp="1441040410716">{:repl-history {:ide [], :local [], :remote [&quot;(ns org.stuff.events.main\n  (.getTag mylayout))&quot; &quot;(ns org.stuff.events.main&quot; &quot;(ns com.example.gt.metime.main&quot; &quot;(ns com.example.gt.metime.main (.getTag mylayout)&quot; &quot;(ns com.example.gt.metime.main)&quot; &quot;(.getTag mylayout)&quot; &quot;(str (.getText (::name (.getTag mylayout))))&quot; &quot;(str (.getText (::location (.getTag mylayout))))&quot;]}}</component>
+</project>

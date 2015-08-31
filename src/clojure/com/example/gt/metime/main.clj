@@ -23,8 +23,8 @@
 (def listing (atom (sorted-map)))
 
 (defn format-events [events]
-  (->> (map (fn [[location event]]
-    (format "%s - %s\n" location event))
+  (->> (map (fn [[event]]
+    (format "%s\n" event))
     events)
   (join "                      ")))
 
@@ -39,9 +39,6 @@
     [:edit-text {
       :hint "Event name",
       :id ::name}]
-    [:edit-text {
-      :hint "Event location",
-      :id ::location}]
     [:linear-layout {:orientation :horizontal}
       [:text-view {
         :hint "Goal (Time)",
@@ -73,7 +70,6 @@
 
 (defn update-ui [activity]
   (set-elmt activity ::listing (format-listing @listing))
-  (set-elmt activity ::location "")
   (set-elmt activity ::name ""))
 
 (defn add-event [activity]
@@ -82,7 +78,7 @@
       (catch RuntimeException e "Date string is empty!"))]
     (when (number? date-key)
       (swap! listing update-in [date-key] (fnil conj [])
-        [(get-elmt activity ::location) (get-elmt activity ::name)])
+        [(get-elmt activity ::name)])
       (update-ui activity))))
 
 (defn date-picker [activity]

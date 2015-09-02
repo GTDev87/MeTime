@@ -24,36 +24,16 @@
 
 (def listing (atom (sorted-map)))
 
-(defn format-events [events]
-  (->> (map (fn [[time-key event]]
-      (format "%s - %s\n" time-key event))
-      events)
-    (join "                      ")))
-
-(defn format-listing [lst]
-  (->> (map (fn [[date events]]
-      (format "%s - %s" date (format-events events)))
-    lst)
-    join))
-
-(def alphabet
-  (atom {:type :phonetic
-         :letters ["alpha" "bravo" "charlie" "delta"]}))
-
 (defn make-adapter []
   (adapters/ref-adapter
     (fn [_]
       [:linear-layout {:id-holder true}
-       [:text-view {:id         ::caption-tv}]
-       ])
-    (fn [position view _ data]
+       [:text-view {:id         ::caption-tv}]])
+    (fn [_ view _ date-event]
       (let [tv (find-view view ::caption-tv)]
-        (config tv :text (str position ". " data))
-
-        ))
-    alphabet
-    :letters
-    ))
+        (config tv :text (str (nth date-event 0) " " (nth date-event 1) "\n"))))
+    listing
+    (fn [lst] (into [] (seq lst)))))
 
 (defn main-layout [activity]
   [:linear-layout {:orientation :vertical}
@@ -79,9 +59,6 @@
     [:button {
       :text "+ Event",
       :on-click (fn [_] (add-event activity))}]
-    [:text-view {
-      :text (format-listing @listing)
-      :id ::listing}]
     [:list-view {
       :id ::listings
       :draw-selector-on-top true
@@ -98,13 +75,8 @@
 (defn set-elmt-text [activity elmt s]
   (on-ui (config (find-view activity elmt) :text s)))
 
-;(defn update-listings [activity]
-;  (on-ui (config (find-view activity ::listings) :adapter (timer-adapter activity @listing))))
-
 (defn update-ui [activity]
-  (set-elmt-text activity ::listing (format-listing @listing))
   (set-elmt-text activity ::name "")
-  (swap! alphabet update-in [:letters] conj "echo")
   )
 
 (defn add-event [activity]
@@ -145,8 +117,4 @@
 
   (onCreate [this bundle]
     (.superOnCreate this bundle)
-    (on-ui
-      (set-content-view! (*a) (main-layout (*a)))
-      (swap! alphabet update-in [:letters] conj "echo")
-      )
-    ))
+    (on-ui (set-content-view! (*a) (main-layout (*a))))))

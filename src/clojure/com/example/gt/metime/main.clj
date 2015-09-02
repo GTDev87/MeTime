@@ -3,36 +3,57 @@
             [neko.debug :refer [*a]]
             [neko.ui :refer [config]]
             [neko.log :as log]
+            [neko.ui.adapters :as adapters]
             [clojure.string :refer [join]]
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]])
-  (:import android.widget.TextView
-           (java.util Calendar)
-           (android.app Activity)
-           (android.app DatePickerDialog DatePickerDialog$OnDateSetListener)
-           (android.app TimePickerDialog TimePickerDialog$OnTimeSetListener)
-           (android.app DialogFragment)))
+  (:import [android.widget CursorAdapter TextView]
+           android.graphics.Color
+           java.util.Calendar
+           android.app.Activity
+           [android.app DatePickerDialog DatePickerDialog$OnDateSetListener]
+           [android.app TimePickerDialog TimePickerDialog$OnTimeSetListener]
+           android.app.DialogFragment))
 
 (declare add-event)
 (declare date-picker)
 (declare time-picker)
 
-(defn show-picker [activity dp picker-type]
-  (. dp show (. activity getFragmentManager) picker-type))
+(defn show-picker [activity picker picker-type]
+  (. picker show (. activity getFragmentManager) picker-type))
 
 (def listing (atom (sorted-map)))
 
 (defn format-events [events]
-  (->> (map (fn [[event]]
-    (format "%s\n" event))
-    events)
-  (join "                      ")))
+  (->> (map (fn [[time-key event]]
+      (format "%s - %s\n" time-key event))
+      events)
+    (join "                      ")))
 
 (defn format-listing [lst]
   (->> (map (fn [[date events]]
       (format "%s - %s" date (format-events events)))
     lst)
-  join))
+    join))
+
+(def alphabet
+  (atom {:type :phonetic
+         :letters ["alpha" "bravo" "charlie" "delta"]}))
+
+(defn make-adapter []
+  (adapters/ref-adapter
+    (fn [_]
+      [:linear-layout {:id-holder true}
+       [:text-view {:id         ::caption-tv}]
+       ])
+    (fn [position view _ data]
+      (let [tv (find-view view ::caption-tv)]
+        (config tv :text (str position ". " data))
+
+        ))
+    alphabet
+    :letters
+    ))
 
 (defn main-layout [activity]
   [:linear-layout {:orientation :vertical}
@@ -60,25 +81,43 @@
       :on-click (fn [_] (add-event activity))}]
     [:text-view {
       :text (format-listing @listing)
-      :id ::listing}]])
+      :id ::listing}]
+    [:list-view {
+      :id ::listings
+      :draw-selector-on-top true
+      :adapter (make-adapter)
+      ;:on-item-click (fn [_] (show-picker activity
+      ;  (date-picker activity) "timerActivity"))
+
+                 }]
+   ])
 
 (defn get-elmt [activity elmt]
   (str (.getText ^TextView (find-view activity elmt))))
 
-(defn set-elmt [activity elmt s]
+(defn set-elmt-text [activity elmt s]
   (on-ui (config (find-view activity elmt) :text s)))
 
+;(defn update-listings [activity]
+;  (on-ui (config (find-view activity ::listings) :adapter (timer-adapter activity @listing))))
+
 (defn update-ui [activity]
-  (set-elmt activity ::listing (format-listing @listing))
-  (set-elmt activity ::name ""))
+  (set-elmt-text activity ::listing (format-listing @listing))
+  (set-elmt-text activity ::name "")
+  (swap! alphabet update-in [:letters] conj "echo")
+  )
 
 (defn add-event [activity]
-  (let [date-key (try
-      (read-string (get-elmt activity ::date))
-      (catch RuntimeException e "Date string is empty!"))]
+  (let [
+      date-key (try
+        (read-string (get-elmt activity ::date))
+        (catch RuntimeException e "Date string is empty!"))
+      time-key (try
+        (read-string (get-elmt activity ::time))
+        (catch RuntimeException e "Time string is empty!"))]
     (when (number? date-key)
       (swap! listing update-in [date-key] (fnil conj [])
-        [(get-elmt activity ::name)])
+        [(get-elmt activity ::name) time-key])
       (update-ui activity))))
 
 (defn date-picker [activity]
@@ -90,7 +129,7 @@
         day (.get c Calendar/DAY_OF_MONTH)]
         (DatePickerDialog. activity this year month day)))
     (onDateSet [view year month day]
-      (set-elmt activity ::date
+      (set-elmt-text activity ::date
         (format "%d%02d%02d" year (inc month) day)))))
 
 (defn time-picker [activity]
@@ -98,8 +137,8 @@
     (onCreateDialog [savedInstanceState]
       (TimePickerDialog. activity this 0 0 true))
     (onTimeSet [view hourOfDay minute]
-      (set-elmt activity ::time
-        (format "%02d:%02d" hourOfDay minute)))))
+      (set-elmt-text activity ::time
+        (format "%d"  (+ (* hourOfDay 60) minute))))))
 
 (defactivity com.example.gt.metime.MainActivity
   :key :main
@@ -108,5 +147,6 @@
     (.superOnCreate this bundle)
     (on-ui
       (set-content-view! (*a) (main-layout (*a)))
-      (set-elmt (*a) ::listing (format-listing @listing)))
+      (swap! alphabet update-in [:letters] conj "echo")
+      )
     ))

@@ -1,7 +1,7 @@
 (ns com.example.gt.metime.main
   (:require [neko.activity :refer [defactivity set-content-view!]]
             [neko.debug :refer [*a]]
-            [neko.ui :refer [config]]
+            [neko.ui :refer [config make-ui]]
             [neko.log :as log]
             [neko.ui.adapters :as adapters]
             [clojure.string :refer [join]]
@@ -11,6 +11,9 @@
            android.graphics.Color
            java.util.Calendar
            android.app.Activity
+           android.view.View
+           android.widget.LinearLayout
+
            [android.app DatePickerDialog DatePickerDialog$OnDateSetListener]
            [android.app TimePickerDialog TimePickerDialog$OnTimeSetListener]
            android.app.DialogFragment))
@@ -19,21 +22,41 @@
 (declare date-picker)
 (declare time-picker)
 
+(defrecord Task [date name duration date-index])
+
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
 
 (def listing (atom (sorted-map)))
 
-(defn make-adapter []
+
+
+(defn sorted-map-array-to-array-task [lst]
+  (mapcat identity (map (fn [sorted-map-data]
+                          (into [] (map-indexed (fn [i ele]  (apply ->Task (concat [(first sorted-map-data)] ele [i]))) (second sorted-map-data)))
+                          ) lst)))
+
+
+(defn make-date-adapter [activity]
   (adapters/ref-adapter
     (fn [_]
-      [:linear-layout {:id-holder true}
-       [:text-view {:id         ::caption-tv}]])
-    (fn [_ view _ date-event]
-      (let [tv (find-view view ::caption-tv)]
-        (config tv :text (str (nth date-event 0) " " (nth date-event 1) "\n"))))
+      [:linear-layout {:id-holder true
+                       :orientation :vertical}
+       [:text-view {:id ::date-tv}]
+       [:text-view {:id ::event-tv}]
+       ])
+    (fn [_ view _ task]
+      (let [date-view (find-view view ::date-tv)
+            event-view (find-view view ::event-tv)]
+        ;symptom of mutability
+        (config date-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
+        (config date-view :text (str (:date task)))
+
+        (config event-view :text (str (:name task) " " (:duration task) " " (:date-index task) ))
+
+        ))
     listing
-    (fn [lst] (into [] (seq lst)))))
+    sorted-map-array-to-array-task))
 
 (defn main-layout [activity]
   [:linear-layout {:orientation :vertical}
@@ -60,14 +83,9 @@
       :text "+ Event",
       :on-click (fn [_] (add-event activity))}]
     [:list-view {
-      :id ::listings
+      :id ::days
       :draw-selector-on-top true
-      :adapter (make-adapter)
-      ;:on-item-click (fn [_] (show-picker activity
-      ;  (date-picker activity) "timerActivity"))
-
-                 }]
-   ])
+      :adapter (make-date-adapter activity)}]])
 
 (defn get-elmt [activity elmt]
   (str (.getText ^TextView (find-view activity elmt))))
@@ -76,8 +94,10 @@
   (on-ui (config (find-view activity elmt) :text s)))
 
 (defn update-ui [activity]
-  (set-elmt-text activity ::name "")
-  )
+  (set-elmt-text activity ::name ""))
+
+(defn add-to-listing [event-name date-key time-key]
+  (swap! listing update-in [date-key] (fnil conj []) [event-name time-key]))
 
 (defn add-event [activity]
   (let [
@@ -88,8 +108,7 @@
         (read-string (get-elmt activity ::time))
         (catch RuntimeException e "Time string is empty!"))]
     (when (number? date-key)
-      (swap! listing update-in [date-key] (fnil conj [])
-        [(get-elmt activity ::name) time-key])
+      (add-to-listing (get-elmt activity ::name) date-key time-key)
       (update-ui activity))))
 
 (defn date-picker [activity]

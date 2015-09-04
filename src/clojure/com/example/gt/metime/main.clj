@@ -9,6 +9,7 @@
             [neko.threading :refer [on-ui]])
   (:import [android.widget CursorAdapter TextView LinearLayout]
            android.graphics.Color
+           [android.os SystemClock Handler]
            java.util.Calendar
            [android.app Activity DialogFragment]
            android.view.View
@@ -18,6 +19,8 @@
 (declare add-event)
 (declare date-picker)
 (declare time-picker)
+
+;(def my-handler (Handler.))
 
 (defrecord Task [date name duration date-index])
 
@@ -31,21 +34,47 @@
                           (into [] (map-indexed (fn [i ele] (apply ->Task (concat [(first sorted-map-data)] ele [i]))) (second sorted-map-data))))
                         lst)))
 
+(defn create-update-timer-method [event-timer-view start-time time-swap ]
+  (defn update-timer-method []
+    (let [time-in-millis (- (SystemClock/uptimeMillis) start-time)
+          final-time (+ time-swap time-in-millis)
+          total-seconds (mod final-time 1000)
+          minutes (quot total-seconds 1000)
+          seconds (mod total-seconds 60)
+          milliseconds (mod final-time 1000)]
+      (config event-timer-view :text (str "" minutes ":" (format "%02d" seconds) ":" (format "%02d" milliseconds))))))
+
+;myHandler.postDelayed(this, 0);
+
 (defn make-date-adapter []
   (adapters/ref-adapter
     (fn [_]
       [:linear-layout {:id-holder   true
                        :orientation :vertical}
        [:text-view {:id ::date-tv}]
-       [:text-view {:id ::event-tv}]])
+       [:linear-layout {:id ::event-ll
+                        :id-holder true
+                        :orientation :horizontal}
+        [:text-view {:id ::event-tv}]
+        [:text-view {:id ::time-tv}]
+        [:button {:id ::event-btn
+                  :text  "start",
+                  ;:on-click
+                  }]
+        ]])
     (fn [_ view _ task]
-      (let [date-view (find-view view ::date-tv)
-            event-view (find-view view ::event-tv)]
+      (let [date-text-view (find-view view ::date-tv)
+            event-linear-layout-view (find-view view ::event-ll)
+            event-text-view (find-view event-linear-layout-view ::event-tv)
+            event-timer-view (find-view event-linear-layout-view ::time-tv)
+            event-button-view (find-view event-linear-layout-view ::event-btn)
+            my-handler (Handler.)]
         ;symptom of mutability
-        (config date-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
-        (config date-view :text (str (:date task)))
+        (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
+        (config date-text-view :text (str (:date task)))
 
-        (config event-view :text (str (:name task) " " (:duration task) " " (:date-index task)))))
+        (config event-button-view :on-click (fn [_] (.postDelayed my-handler (create-update-timer-method event-timer-view 0 0) 0)))
+        (config event-text-view :text (str (:name task) " " (:duration task) " " (:date-index task)))))
     listing
     sorted-map-array-to-array-task))
 
@@ -78,6 +107,8 @@
 (defn set-elmt-text [activity elmt s]
   (on-ui (config (find-view activity elmt) :text s)))
 
+
+
 (defn update-ui [activity]
   (set-elmt-text activity ::name ""))
 
@@ -97,21 +128,21 @@
 
 (defn date-picker [activity]
   (proxy [DialogFragment DatePickerDialog$OnDateSetListener] []
-    (onCreateDialog [savedInstanceState]
+    (onCreateDialog [_]
       (let [c (Calendar/getInstance)
             year (.get c Calendar/YEAR)
             month (.get c Calendar/MONTH)
             day (.get c Calendar/DAY_OF_MONTH)]
         (DatePickerDialog. activity this year month day)))
-    (onDateSet [view year month day]
+    (onDateSet [_ year month day]
       (set-elmt-text activity ::date
                      (format "%d%02d%02d" year (inc month) day)))))
 
 (defn time-picker [activity]
   (proxy [DialogFragment TimePickerDialog$OnTimeSetListener] []
-    (onCreateDialog [savedInstanceState]
+    (onCreateDialog [_]
       (TimePickerDialog. activity this 0 0 true))
-    (onTimeSet [view hourOfDay minute]
+    (onTimeSet [_ hourOfDay minute]
       (set-elmt-text activity ::time
                      (format "%d" (+ (* hourOfDay 60) minute))))))
 

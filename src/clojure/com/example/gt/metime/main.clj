@@ -9,8 +9,9 @@
             [neko.threading :refer [on-ui]])
   (:import [android.widget CursorAdapter TextView LinearLayout]
            android.graphics.Color
-           [android.os SystemClock Handler]
+           [android.os SystemClock CountDownTimer]
            java.util.Calendar
+           java.util.concurrent.TimeUnit
            [android.app Activity DialogFragment]
            android.view.View
            [android.app DatePickerDialog DatePickerDialog$OnDateSetListener]
@@ -20,7 +21,19 @@
 (declare date-picker)
 (declare time-picker)
 
-;(def my-handler (Handler.))
+(defn create-counter-class [text-time-view millis-in-future countdown-timer-interval]
+  (proxy [CountDownTimer] [millis-in-future countdown-timer-interval]
+    (onTick [millis-until-finished]
+      (on-ui
+        (config
+          text-time-view
+          :text
+          (str (format "%02d:%02d:%02d"
+                       (.toHours TimeUnit/MICROSECONDS millis-until-finished)
+                       (- (.toMinutes TimeUnit/MICROSECONDS millis-until-finished) (.toMinutes TimeUnit/HOURS (.toHours TimeUnit/MICROSECONDS millis-until-finished)))
+                       (- (.toSeconds TimeUnit/MICROSECONDS millis-until-finished) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MICROSECONDS millis-until-finished))))))))
+    (onFinish []
+      (on-ui config text-time-view :text "Completed."))))
 
 (defrecord Task [date name duration date-index])
 
@@ -34,31 +47,19 @@
                           (into [] (map-indexed (fn [i ele] (apply ->Task (concat [(first sorted-map-data)] ele [i]))) (second sorted-map-data))))
                         lst)))
 
-(defn create-update-timer-method [event-timer-view start-time time-swap ]
-  (defn update-timer-method []
-    (let [time-in-millis (- (SystemClock/uptimeMillis) start-time)
-          final-time (+ time-swap time-in-millis)
-          total-seconds (mod final-time 1000)
-          minutes (quot total-seconds 1000)
-          seconds (mod total-seconds 60)
-          milliseconds (mod final-time 1000)]
-      (config event-timer-view :text (str "" minutes ":" (format "%02d" seconds) ":" (format "%02d" milliseconds))))))
-
-;myHandler.postDelayed(this, 0);
-
 (defn make-date-adapter []
   (adapters/ref-adapter
     (fn [_]
       [:linear-layout {:id-holder   true
                        :orientation :vertical}
        [:text-view {:id ::date-tv}]
-       [:linear-layout {:id ::event-ll
-                        :id-holder true
+       [:linear-layout {:id          ::event-ll
+                        :id-holder   true
                         :orientation :horizontal}
         [:text-view {:id ::event-tv}]
         [:text-view {:id ::time-tv}]
-        [:button {:id ::event-btn
-                  :text  "start",
+        [:button {:id   ::event-btn
+                  :text "start",
                   ;:on-click
                   }]
         ]])
@@ -68,12 +69,13 @@
             event-text-view (find-view event-linear-layout-view ::event-tv)
             event-timer-view (find-view event-linear-layout-view ::time-tv)
             event-button-view (find-view event-linear-layout-view ::event-btn)
-            my-handler (Handler.)]
+            timer (create-counter-class event-timer-view 180000 1000)]
+
         ;symptom of mutability
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
         (config date-text-view :text (str (:date task)))
 
-        (config event-button-view :on-click (fn [_] (.postDelayed my-handler (create-update-timer-method event-timer-view 0 0) 0)))
+        (config event-button-view :on-click (fn [_] (.start timer)))
         (config event-text-view :text (str (:name task) " " (:duration task) " " (:date-index task)))))
     listing
     sorted-map-array-to-array-task))
@@ -106,8 +108,6 @@
 
 (defn set-elmt-text [activity elmt s]
   (on-ui (config (find-view activity elmt) :text s)))
-
-
 
 (defn update-ui [activity]
   (set-elmt-text activity ::name ""))

@@ -29,9 +29,11 @@
           text-time-view
           :text
           (str (format "%02d:%02d:%02d"
-                       (.toHours TimeUnit/MICROSECONDS millis-until-finished)
-                       (- (.toMinutes TimeUnit/MICROSECONDS millis-until-finished) (.toMinutes TimeUnit/HOURS (.toHours TimeUnit/MICROSECONDS millis-until-finished)))
-                       (- (.toSeconds TimeUnit/MICROSECONDS millis-until-finished) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MICROSECONDS millis-until-finished))))))))
+                       (.toHours TimeUnit/MILLISECONDS millis-until-finished)
+                       (- (.toMinutes TimeUnit/MILLISECONDS millis-until-finished) (.toMinutes TimeUnit/HOURS (.toHours TimeUnit/MILLISECONDS millis-until-finished)))
+                       (- (.toSeconds TimeUnit/MILLISECONDS millis-until-finished) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MILLISECONDS millis-until-finished))))))
+        )
+      )
     (onFinish []
       (on-ui config text-time-view :text "Completed."))))
 

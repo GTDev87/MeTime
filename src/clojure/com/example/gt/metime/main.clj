@@ -23,31 +23,37 @@
 
 (defn create-counter-class [text-time-view millis-in-future countdown-timer-interval]
   (proxy [CountDownTimer] [millis-in-future countdown-timer-interval]
-    (onTick [millis-until-finished]
-      (on-ui
-        (config
-          text-time-view
-          :text
-          (str (format "%02d:%02d:%02d"
-                       (.toHours TimeUnit/MILLISECONDS millis-until-finished)
-                       (- (.toMinutes TimeUnit/MILLISECONDS millis-until-finished) (.toMinutes TimeUnit/HOURS (.toHours TimeUnit/MILLISECONDS millis-until-finished)))
-                       (- (.toSeconds TimeUnit/MILLISECONDS millis-until-finished) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MILLISECONDS millis-until-finished))))))
-        )
-      )
-    (onFinish []
-      (on-ui config text-time-view :text "Completed."))))
 
-(defrecord Task [date name duration date-index])
+    (onTick [millis-until-finished]
+      (let [millis-complete (- millis-in-future millis-until-finished)]
+        (on-ui
+          (config
+            text-time-view
+            :text
+            (str "spent: " (format "%02d:%02d:%02d"
+                                   (.toHours TimeUnit/MILLISECONDS millis-complete)
+                                   (- (.toMinutes TimeUnit/MILLISECONDS millis-complete) (.toMinutes TimeUnit/HOURS (.toHours TimeUnit/MILLISECONDS millis-complete)))
+                                   (- (.toSeconds TimeUnit/MILLISECONDS millis-complete) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MILLISECONDS millis-complete)))))))))
+    (onFinish []
+      (on-ui (config text-time-view :text "Completed.")))))
 
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
 
 (def listing (atom (sorted-map)))
 
+(defrecord Task [date name duration date-index])
+
+(defn add-to-listing [event-name date-key time-key]
+  (swap! listing update-in [date-key] (fnil conj []) [event-name time-key]))
+
 (defn sorted-map-array-to-array-task [lst]
-  (mapcat identity (map (fn [sorted-map-data]
-                          (into [] (map-indexed (fn [i ele] (apply ->Task (concat [(first sorted-map-data)] ele [i]))) (second sorted-map-data))))
-                        lst)))
+  (mapcat
+    identity
+    (map
+      (fn [sorted-map-data]
+        (into [] (map-indexed (fn [i ele] (apply ->Task (concat [(first sorted-map-data)] ele [i]))) (second sorted-map-data))))
+      lst)))
 
 (defn make-date-adapter []
   (adapters/ref-adapter
@@ -59,26 +65,24 @@
                         :id-holder   true
                         :orientation :horizontal}
         [:text-view {:id ::event-tv}]
+        [:text-view {:id ::goal-tv}]
         [:text-view {:id ::time-tv}]
         [:button {:id   ::event-btn
-                  :text "start",
-                  ;:on-click
-                  }]
-        ]])
+                  :text "start"}]]])
     (fn [_ view _ task]
       (let [date-text-view (find-view view ::date-tv)
             event-linear-layout-view (find-view view ::event-ll)
             event-text-view (find-view event-linear-layout-view ::event-tv)
             event-timer-view (find-view event-linear-layout-view ::time-tv)
             event-button-view (find-view event-linear-layout-view ::event-btn)
-            timer (create-counter-class event-timer-view 180000 1000)]
+            timer (create-counter-class event-timer-view (* (:duration task) 60000) 1000)]
 
-        ;symptom of mutability
+        ;mutates the viz
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
         (config date-text-view :text (str (:date task)))
 
         (config event-button-view :on-click (fn [_] (.start timer)))
-        (config event-text-view :text (str (:name task) " " (:duration task) " " (:date-index task)))))
+        (config event-text-view :text (str (:name task) " goal: " (:duration task) " "))))
     listing
     sorted-map-array-to-array-task))
 
@@ -113,9 +117,6 @@
 
 (defn update-ui [activity]
   (set-elmt-text activity ::name ""))
-
-(defn add-to-listing [event-name date-key time-key]
-  (swap! listing update-in [date-key] (fnil conj []) [event-name time-key]))
 
 (defn add-event [activity]
   (let [date-key (try

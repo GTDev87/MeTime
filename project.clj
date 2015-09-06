@@ -1,6 +1,6 @@
 (defproject metime/metime "0.1.0-SNAPSHOT"
-  :description "FIXME: Android project description"
-  :url "http://example.com/FIXME"
+  :description "My Time Tracking App"
+  :url "http://metime.com"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
 
@@ -21,15 +21,15 @@
               {:dependencies [[org.clojure/tools.nrepl "0.2.10" :use-resources true]]
                :target-path "target/debug"
                :android {:aot :all-with-unused
-                         :rename-manifest-package "com.example.gt.metime.debug"
+                         :rename-manifest-package "com.gt.metime.debug"
                          :manifest-options {:app-name "MeTime (debug)"}}}]
              :release
              [:android-common
               {:target-path "target/release"
                :android
-               {;; :keystore-path "/home/user/.android/private.keystore"
-                ;; :key-alias "mykeyalias"
-                ;; :sigalg "MD5withRSA"
+               { :keystore-path "/Users/GT/.android/private.keystore"
+                 :key-alias "greg.play.alias"
+                 :sigalg "MD5withRSA"
 
                 :ignore-log-priority [:debug :verbose]
                 :aot :all

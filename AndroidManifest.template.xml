@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.example.gt.metime"
+          package="com.gt.metime"
           android:versionCode="{{version-code}}"
           android:versionName="{{version-name}}" >
 
@@ -20,7 +20,7 @@
     </activity>
     <activity android:name=".MainActivity">
       <intent-filter>
-        <action android:name='com.example.gt.metime.MAIN'/>
+        <action android:name='com.gt.metime.MAIN'/>
         <category android:name='android.intent.category.DEFAULT'/>
       </intent-filter>
     </activity>

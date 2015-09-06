@@ -1,4 +1,4 @@
-package com.example.gt.metime;
+package com.gt.metime;
 
 import android.app.Activity;
 import android.content.Intent;
@@ -9,7 +9,7 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import neko.App;
 
-import com.example.gt.metime.R;
+import com.gt.metime.R;
 
 public class SplashActivity extends Activity {
 
@@ -22,7 +22,7 @@ public class SplashActivity extends Activity {
         if (firstLaunch) {
             firstLaunch = false;
             setupSplash();
-            App.loadAsynchronously("com.example.gt.metime.MainActivity",
+            App.loadAsynchronously("com.gt.metime.MainActivity",
                                    new Runnable() {
                                        @Override
                                        public void run() {
@@ -45,7 +45,7 @@ public class SplashActivity extends Activity {
     }
 
     public void proceed() {
-        startActivity(new Intent("com.example.gt.metime.MAIN"));
+        startActivity(new Intent("com.gt.metime.MAIN"));
         finish();
     }
 

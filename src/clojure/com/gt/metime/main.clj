@@ -1,4 +1,4 @@
-(ns com.example.gt.metime.main
+(ns com.gt.metime.main
   (:require [neko.activity :refer [defactivity set-content-view!]]
             [neko.debug :refer [*a]]
             [neko.ui :refer [config make-ui]]
@@ -84,7 +84,8 @@
                   1000
                   (fn []
                     (on-ui (config event-timer-view :text "Completed."))
-                    (start-timer duration event-timer-view event-button-view 0))
+                    (start-timer duration event-timer-view event-button-view 0)
+                    (on-ui (config event-button-view :text "Reset")))
                   start-time)]
       (config event-button-view :text "Start")
       (config event-button-view :on-click (fn [_] (.start ^CountDownTimer timer)
@@ -183,7 +184,7 @@
         (set-elmt-text activity ::time
                        (format "%d" (+ (* hourOfDay 60) minute))))))
 
-  (defactivity com.example.gt.metime.MainActivity
+  (defactivity com.gt.metime.MainActivity
                :key :main
                (onCreate [this bundle]
                          (.superOnCreate this bundle)

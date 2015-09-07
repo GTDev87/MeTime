@@ -6,7 +6,7 @@ This is a Clojure/Android application.
 
 Running with android studio
 
-lein new droid metime com.gt.metime :activity MainActivity :target-sdk 23 :app-name MeTime
+lein new droid metime com.gt.metime :activity MainActivity :target-sdk 15 :app-name MeTime
 
 edit project.clj:
 :sdk-path "/Users/GT/Library/Android/sdk"
@@ -32,6 +32,9 @@ adb uninstall com.gt.metime
 
 lein with-profile release droid clean
 lein with-profile release droid doall
+
+logs:
+adb logcat
 
 keytool -genkeypair -keyalg RSA -keystore ~/.keystore -alias android.key -validity 36500
 

@@ -46,7 +46,9 @@
     ([text-time-view millis-in-future countdown-timer-interval finish-fn start-time] (priv-count-up-timer text-time-view millis-in-future countdown-timer-interval finish-fn start-time)))
 
   (defn show-picker [activity picker picker-type]
-    (. picker show (. activity getFragmentManager) picker-type))
+    (. picker show
+       (. activity getFragmentManager)
+       picker-type))
 
   (def listing (atom (sorted-map)))
 

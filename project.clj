@@ -1,4 +1,4 @@
-(defproject metime/metime "0.1.0-SNAPSHOT"
+(defproject metime/metime "0.1.1-SNAPSHOT"
   :description "My Time Tracking App"
   :url "http://metime.com"
   :license {:name "Eclipse Public License"
@@ -43,7 +43,7 @@
             ;; available RAM.
             :dex-opts ["-JXmx4096M" "--incremental"]
 
-            :target-version "23"
+            :target-version "15"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"
                              "cider.nrepl" "cider-nrepl.plugin"
                              "cider.nrepl.middleware.util.java.parser"

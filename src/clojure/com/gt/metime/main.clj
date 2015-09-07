@@ -6,13 +6,13 @@
             [neko.ui.adapters :as adapters]
             [clojure.string :refer [join]]
             [neko.find-view :refer [find-view]]
-            [neko.threading :refer [on-ui]])
+            [neko.threading :refer [on-ui]]
+            [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis]]
+            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task]])
   (:import [android.widget CursorAdapter TextView LinearLayout]
            android.graphics.Color
-           java.text.SimpleDateFormat
            [android.os SystemClock CountDownTimer]
-           [java.util Date Calendar TimeZone]
-           java.util.concurrent.TimeUnit
+           [java.util Calendar]
            [android.app Activity DialogFragment]
            android.view.View
            [android.app DatePickerDialog DatePickerDialog$OnDateSetListener]
@@ -21,12 +21,6 @@
 (declare add-event)
 (declare date-picker)
 (declare time-picker)
-
-(defn millis-to-format-time [millis]
-  (str (format "%02d:%02d:%02d"
-               (.toHours TimeUnit/MILLISECONDS millis)
-               (- (.toMinutes TimeUnit/MILLISECONDS millis) (.toMinutes TimeUnit/HOURS (.toHours TimeUnit/MILLISECONDS millis)))
-               (- (.toSeconds TimeUnit/MILLISECONDS millis) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MILLISECONDS millis))))))
 
 (defn priv-count-up-timer
   [text-time-view end-time countdown-timer-interval finish-fn start-time]
@@ -48,34 +42,14 @@
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
 
-(def listing (atom (sorted-map)))
-
-(defrecord Task [date name duration date-index])
-
-(defn add-to-listing [event-name date-key time-key]
-  (swap! listing update-in [date-key] (fnil conj []) [event-name time-key]))
-
-(defn sorted-map-array-to-array-task [lst]
-  (mapcat
-    identity
-    (map
-      (fn [sorted-map-data]
-        (into [] (map-indexed (fn [i ele] (apply ->Task (concat [(first sorted-map-data)] ele [i]))) (second sorted-map-data))))
-      lst)))
-
 (declare start-timer)
 (declare stop-timer)
-
-(def simple-date-format (doto (SimpleDateFormat. "HH:mm:ss")
-                          (.setTimeZone (TimeZone/getTimeZone "GMT"))))
-
-(defn format-time-to-millis [event-timer-view] (.getTime (.parse simple-date-format (.getText ^TextView event-timer-view))))
 
 (defn stop-timer [timer duration event-timer-view event-button-view]
   (config event-button-view :text "Stop")
   (config event-button-view :on-click (fn [_]
                                         (.cancel ^CountDownTimer timer)
-                                        (start-timer duration event-timer-view event-button-view (format-time-to-millis event-timer-view)))))
+                                        (start-timer duration event-timer-view event-button-view (format-time-to-millis (.getText ^TextView event-timer-view))))))
 
 (defn start-timer [duration event-timer-view event-button-view start-time]
   (let [timer (create-count-up-timer-class
@@ -90,12 +64,6 @@
     (config event-button-view :text "Start")
     (config event-button-view :on-click (fn [_] (.start ^CountDownTimer timer)
                                           (stop-timer timer duration event-timer-view event-button-view)))))
-
-(defn remove-element-from-vec [date-list index]
-  (vec (concat (subvec date-list 0 index) (subvec date-list (+ index 1)))))
-
-(defn remove-from-listing [date-key date-index]
-  (swap! listing update-in [date-key] (fn [date-list] (remove-element-from-vec date-list date-index))))
 
 (defn make-date-adapter []
   (adapters/ref-adapter
@@ -141,13 +109,13 @@
    [:linear-layout {:orientation :horizontal}
     [:text-view {:hint "Goal (Time)",
                  :id   ::time}]
-    [:button {:text     "...",
+    [:button {:text     "Set Time...",
               :on-click (fn [_] (show-picker activity
                                              (time-picker activity), "timePicker"))}]]
    [:linear-layout {:orientation :horizontal}
     [:text-view {:hint "Event date",
                  :id   ::date}]
-    [:button {:text     "...",
+    [:button {:text     "Set Date...",
               :on-click (fn [_] (show-picker activity
                                              (date-picker activity) "datePicker"))}]]
    [:button {:text     "+ Event",

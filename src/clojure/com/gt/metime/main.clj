@@ -8,10 +8,11 @@
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]]
             [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis]]
+            [com.gt.metime.timer :refer [create-count-up-timer-class]]
             [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task]])
-  (:import [android.widget CursorAdapter TextView LinearLayout]
+  (:import [android.os SystemClock CountDownTimer]
+           [android.widget CursorAdapter TextView LinearLayout]
            android.graphics.Color
-           [android.os SystemClock CountDownTimer]
            [java.util Calendar]
            [android.app Activity DialogFragment]
            android.view.View
@@ -22,48 +23,33 @@
 (declare date-picker)
 (declare time-picker)
 
-(defn priv-count-up-timer
-  [text-time-view end-time countdown-timer-interval finish-fn start-time]
-  (let [duration (- end-time start-time)]
-    (proxy [CountDownTimer] [duration countdown-timer-interval]
-      (onTick [millis-until-finished]
-        (let [millis-complete (+ start-time (- duration millis-until-finished))]
-          (on-ui
-            (config
-              text-time-view
-              :text
-              (millis-to-format-time millis-complete)))))
-      (onFinish [] (finish-fn)))))
-
-(defn create-count-up-timer-class
-  ([text-time-view millis-in-future countdown-timer-interval finish-fn] (priv-count-up-timer text-time-view millis-in-future countdown-timer-interval finish-fn 0))
-  ([text-time-view millis-in-future countdown-timer-interval finish-fn start-time] (priv-count-up-timer text-time-view millis-in-future countdown-timer-interval finish-fn start-time)))
 
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
 
-(declare start-timer)
-(declare stop-timer)
+(declare start-timer-set)
+(declare stop-timer-set)
 
-(defn stop-timer [timer duration event-timer-view event-button-view]
+(defn stop-timer-set [timer duration event-timer-view event-button-view]
   (config event-button-view :text "Stop")
   (config event-button-view :on-click (fn [_]
                                         (.cancel ^CountDownTimer timer)
-                                        (start-timer duration event-timer-view event-button-view (format-time-to-millis (.getText ^TextView event-timer-view))))))
+                                        (start-timer-set duration event-timer-view event-button-view (format-time-to-millis (.getText ^TextView event-timer-view))))))
 
-(defn start-timer [duration event-timer-view event-button-view start-time]
+(defn start-timer-set [duration event-timer-view event-button-view start-time]
   (let [timer (create-count-up-timer-class
-                event-timer-view
                 (* duration 60000)
                 1000
+                (fn [millis-complete]
+                  (on-ui (config event-timer-view :text (millis-to-format-time millis-complete))))
                 (fn []
                   (on-ui (config event-timer-view :text "Completed."))
-                  (start-timer duration event-timer-view event-button-view 0)
+                  (start-timer-set duration event-timer-view event-button-view 0)
                   (on-ui (config event-button-view :text "Reset")))
                 start-time)]
     (config event-button-view :text "Start")
     (config event-button-view :on-click (fn [_] (.start ^CountDownTimer timer)
-                                          (stop-timer timer duration event-timer-view event-button-view)))))
+                                          (stop-timer-set timer duration event-timer-view event-button-view)))))
 
 (defn make-date-adapter []
   (adapters/ref-adapter
@@ -92,11 +78,14 @@
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
         (config date-text-view :text (str (:date task)))
 
-        (start-timer (:duration task) event-timer-view event-button-view 0)
+        (start-timer-set (:duration task) event-timer-view event-button-view 0)
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))
 
-        (config event-delete-button-view :on-click (fn [_] (remove-from-listing (:date task) (:date-index task))))))
+        (config event-delete-button-view :on-click (fn [_]
+                                                     (remove-from-listing (:date task) (:date-index task))
+                                                     ;(stop-timer)
+                                                     ))))
 
     listing
     sorted-map-array-to-array-task))

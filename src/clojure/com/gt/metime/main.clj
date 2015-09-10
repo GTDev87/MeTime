@@ -11,8 +11,7 @@
             [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis]]
             [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task]])
   (:import [android.os SystemClock CountDownTimer]
-           [android.widget CursorAdapter TextView LinearLayout Chronometer]
-           android.graphics.Color
+           [android.widget CursorAdapter TextView LinearLayout Chronometer Chronometer$OnChronometerTickListener]
            [java.util Calendar]
            [android.app Activity DialogFragment]
            android.view.View
@@ -50,6 +49,11 @@
             :classname android.widget.Chronometer
             :inherits  :text-view)
 
+(defn get-chronometer-listener []
+   (proxy [Chronometer$OnChronometerTickListener] []
+     (onChronometerTick [chronometer]
+       (config chronometer :text (str (millis-to-format-time (- (SystemClock/elapsedRealtime) (.getBase chronometer))))))))
+
 (defn make-date-adapter []
   (adapters/ref-adapter
     (fn [_]
@@ -65,7 +69,7 @@
         [:button {:id ::event-btn}]
         [:button {:id   ::delete-btn
                   :text "del"}]]])
-    (fn [indx view _ task]
+    (fn [_ view _ task]
       (let [date-text-view (find-view view ::date-tv)
             event-linear-layout-view (find-view view ::event-ll)
             event-text-view (find-view event-linear-layout-view ::event-tv)
@@ -74,14 +78,13 @@
             event-delete-button-view (find-view event-linear-layout-view ::delete-btn)
             timer-context (:timer-context task)]
 
+        (.setOnChronometerTickListener event-chonometer (get-chronometer-listener))
+
         ;mutates the viz
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
         (config date-text-view :text (str (:date task)))
 
         (.stop event-chonometer)
-
-
-
 
         (if
           (:running @timer-context)

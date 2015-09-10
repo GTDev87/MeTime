@@ -81,13 +81,6 @@
         (.stop event-chonometer)
         (config event-chonometer :text "00:00")
 
-        (.println (System/out) (str "indx = " indx))
-        (.println (System/out) (str "(:name task) = " (:name task)))
-        (.println (System/out) (str "(:duration task) = " (:duration task)))
-        (.println (System/out) (str "event-chonometer = " event-chonometer))
-
-        (.println (System/out) (str "@timer-context running = " (:running @timer-context)))
-        (.println (System/out) (str "@timer-context offset = " (:offset @timer-context)))
         (if
           (:running @timer-context)
           ((fn []

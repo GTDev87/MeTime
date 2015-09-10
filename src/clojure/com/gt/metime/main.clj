@@ -79,18 +79,23 @@
         (config date-text-view :text (str (:date task)))
 
         (.stop event-chonometer)
-        (config event-chonometer :text "00:00")
+
+
+
 
         (if
           (:running @timer-context)
           ((fn []
-             (.setBase event-chonometer (+ (:base @timer-context) (:offset @timer-context)))
              (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (:base @timer-context)]))
+             (.setBase event-chonometer (:base @timer-context))
+
              (.start event-chonometer)
              (config event-button-view :text "Stop")
              (stop-timer-set event-chonometer event-button-view timer-context)))
           ((fn []
              (config event-button-view :text "Start")
+
+             (config event-chonometer :text (millis-to-format-time (*  (:offset @timer-context) -1)))
              (start-timer-set event-chonometer event-button-view timer-context))))
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))

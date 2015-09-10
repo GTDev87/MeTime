@@ -1,4 +1,4 @@
-(defproject metime/metime "0.1.2-SNAPSHOT"
+(defproject metime/metime "0.1.3-SNAPSHOT"
   :description "My Time Tracking App"
   :url "http://metime.com"
   :license {:name "Eclipse Public License"

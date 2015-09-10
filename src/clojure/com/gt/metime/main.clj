@@ -2,16 +2,16 @@
   (:require [neko.activity :refer [defactivity set-content-view!]]
             [neko.debug :refer [*a]]
             [neko.ui :refer [config make-ui]]
+            [neko.ui.mapping :refer [defelement]]
             [neko.log :as log]
             [neko.ui.adapters :as adapters]
             [clojure.string :refer [join]]
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]]
             [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis]]
-            [com.gt.metime.timer :refer [create-count-up-timer-class]]
             [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task]])
   (:import [android.os SystemClock CountDownTimer]
-           [android.widget CursorAdapter TextView LinearLayout]
+           [android.widget CursorAdapter TextView LinearLayout Chronometer]
            android.graphics.Color
            [java.util Calendar]
            [android.app Activity DialogFragment]
@@ -23,33 +23,32 @@
 (declare date-picker)
 (declare time-picker)
 
-
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
 
 (declare start-timer-set)
 (declare stop-timer-set)
 
-(defn stop-timer-set [timer duration event-timer-view event-button-view]
+(defrecord TimerContext [running offset base])
+
+(defn stop-timer-set [event-chonometer event-button-view timer-context]
   (config event-button-view :text "Stop")
   (config event-button-view :on-click (fn [_]
-                                        (.cancel ^CountDownTimer timer)
-                                        (start-timer-set duration event-timer-view event-button-view (format-time-to-millis (.getText ^TextView event-timer-view))))))
+                                        (.stop event-chonometer)
+                                        (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
+                                        (start-timer-set event-chonometer event-button-view timer-context))))
 
-(defn start-timer-set [duration event-timer-view event-button-view start-time]
-  (let [timer (create-count-up-timer-class
-                (* duration 60000)
-                1000
-                (fn [millis-complete]
-                  (on-ui (config event-timer-view :text (millis-to-format-time millis-complete))))
-                (fn []
-                  (on-ui (config event-timer-view :text "Completed."))
-                  (start-timer-set duration event-timer-view event-button-view 0)
-                  (on-ui (config event-button-view :text "Reset")))
-                start-time)]
-    (config event-button-view :text "Start")
-    (config event-button-view :on-click (fn [_] (.start ^CountDownTimer timer)
-                                          (stop-timer-set timer duration event-timer-view event-button-view)))))
+(defn start-timer-set [event-chonometer event-button-view timer-context]
+  (config event-button-view :text "Start")
+  (config event-button-view :on-click (fn [_]
+                                        (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (+ (SystemClock/elapsedRealtime) (:offset @timer-context))]))
+                                        (.setBase event-chonometer (:base @timer-context))
+                                        (.start event-chonometer)
+                                        (stop-timer-set event-chonometer event-button-view timer-context))))
+
+(defelement :chronometer
+            :classname android.widget.Chronometer
+            :inherits  :text-view)
 
 (defn make-date-adapter []
   (adapters/ref-adapter
@@ -62,31 +61,51 @@
                         :orientation :horizontal}
         [:text-view {:id ::event-tv}]
         [:text-view {:id ::goal-tv}]
-        [:text-view {:id ::time-tv}]
+        [:chronometer {:id ::time-tv}]
         [:button {:id ::event-btn}]
         [:button {:id   ::delete-btn
                   :text "del"}]]])
-    (fn [_ view _ task]
+    (fn [indx view _ task]
       (let [date-text-view (find-view view ::date-tv)
             event-linear-layout-view (find-view view ::event-ll)
             event-text-view (find-view event-linear-layout-view ::event-tv)
-            event-timer-view (find-view event-linear-layout-view ::time-tv)
+            event-chonometer (find-view event-linear-layout-view ::time-tv)
             event-button-view (find-view event-linear-layout-view ::event-btn)
-            event-delete-button-view (find-view event-linear-layout-view ::delete-btn)]
+            event-delete-button-view (find-view event-linear-layout-view ::delete-btn)
+            timer-context (:timer-context task)]
 
         ;mutates the viz
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
         (config date-text-view :text (str (:date task)))
 
-        (start-timer-set (:duration task) event-timer-view event-button-view 0)
+        (.stop event-chonometer)
+        (config event-chonometer :text "00:00")
+
+        (.println (System/out) (str "indx = " indx))
+        (.println (System/out) (str "(:name task) = " (:name task)))
+        (.println (System/out) (str "(:duration task) = " (:duration task)))
+        (.println (System/out) (str "event-chonometer = " event-chonometer))
+
+        (.println (System/out) (str "@timer-context running = " (:running @timer-context)))
+        (.println (System/out) (str "@timer-context offset = " (:offset @timer-context)))
+        (if
+          (:running @timer-context)
+          ((fn []
+             (.setBase event-chonometer (+ (:base @timer-context) (:offset @timer-context)))
+             (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (:base @timer-context)]))
+             (.start event-chonometer)
+             (config event-button-view :text "Stop")
+             (stop-timer-set event-chonometer event-button-view timer-context)))
+          ((fn []
+             (config event-button-view :text "Start")
+             (start-timer-set event-chonometer event-button-view timer-context))))
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))
 
         (config event-delete-button-view :on-click (fn [_]
-                                                     (remove-from-listing (:date task) (:date-index task))
-                                                     ;(stop-timer)
-                                                     ))))
-
+                                                     (.stop event-chonometer)
+                                                     (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
+                                                     (remove-from-listing (:date task) (:date-index task))))))
     listing
     sorted-map-array-to-array-task))
 

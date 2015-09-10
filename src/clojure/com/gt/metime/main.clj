@@ -3,6 +3,7 @@
             [neko.debug :refer [*a]]
             [neko.ui :refer [config make-ui]]
             [neko.ui.mapping :refer [defelement]]
+            [neko.dialog.alert :refer [alert-dialog-builder]]
             [neko.log :as log]
             [neko.ui.adapters :as adapters]
             [clojure.string :refer [join]]
@@ -13,6 +14,7 @@
   (:import [android.os SystemClock CountDownTimer]
            [android.widget CursorAdapter TextView LinearLayout Chronometer Chronometer$OnChronometerTickListener]
            [java.util Calendar]
+           android.content.DialogInterface
            [android.app Activity DialogFragment]
            android.view.View
            [android.app DatePickerDialog DatePickerDialog$OnDateSetListener]
@@ -21,6 +23,7 @@
 (declare add-event)
 (declare date-picker)
 (declare time-picker)
+(declare alert-dialog)
 
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
@@ -47,12 +50,12 @@
 
 (defelement :chronometer
             :classname android.widget.Chronometer
-            :inherits  :text-view)
+            :inherits :text-view)
 
 (defn get-chronometer-listener []
-   (proxy [Chronometer$OnChronometerTickListener] []
-     (onChronometerTick [chronometer]
-       (config chronometer :text (str (millis-to-format-time (- (SystemClock/elapsedRealtime) (.getBase chronometer))))))))
+  (proxy [Chronometer$OnChronometerTickListener] []
+    (onChronometerTick [chronometer]
+      (config chronometer :text (str (millis-to-format-time (- (SystemClock/elapsedRealtime) (.getBase chronometer))))))))
 
 (defn make-date-adapter []
   (adapters/ref-adapter
@@ -97,8 +100,7 @@
              (stop-timer-set event-chonometer event-button-view timer-context)))
           ((fn []
              (config event-button-view :text "Start")
-
-             (config event-chonometer :text (millis-to-format-time (*  (:offset @timer-context) -1)))
+             (config event-chonometer :text (millis-to-format-time (* (:offset @timer-context) -1)))
              (start-timer-set event-chonometer event-button-view timer-context))))
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))
@@ -112,48 +114,69 @@
 
 (defn main-layout [activity]
   [:linear-layout {:orientation :vertical}
-   [:edit-text {
-                :hint "Event name",
-                :id   ::name}]
-   [:linear-layout {:orientation :horizontal}
-    [:text-view {:hint "Goal (Time)",
-                 :id   ::time}]
-    [:button {:text     "Set Time...",
-              :on-click (fn [_] (show-picker activity
-                                             (time-picker activity), "timePicker"))}]]
-   [:linear-layout {:orientation :horizontal}
-    [:text-view {:hint "Event date",
-                 :id   ::date}]
-    [:button {:text     "Set Date...",
-              :on-click (fn [_] (show-picker activity
-                                             (date-picker activity) "datePicker"))}]]
-   [:button {:text     "+ Event",
-             :on-click (fn [_] (add-event activity))}]
+   [:button {:text     "+ Task",
+             :on-click (fn [_]
+                         (show-picker
+                           activity
+                           (alert-dialog
+                             activity
+                             {:message           "Add Task"
+                              :cancelable        true
+                              :positive-text     "OK"
+                              :positive-callback (fn [_ _]) ;will be overwitten below... ugh mutable
+                              :negative-text     "Cancel"
+                              :negative-callback (fn [_ _])}
+                             (fn []
+                               [:linear-layout {:id-holder   true
+                                                :id          ::top-dialog-layout
+                                                :orientation :vertical}
+                                [:edit-text {:hint "Task name"
+                                             :id   ::name}]
+                                [:linear-layout {:orientation :horizontal
+                                                 :id          ::ll}
+                                 [:text-view {:hint "Goal (Time)"
+                                              :id   ::time}]
+                                 [:button {:text "Set Goal..."
+                                           :id   ::time-btn}]]
+                                [:linear-layout {:orientation :horizontal}
+                                 [:text-view {:hint "Event date",
+                                              :id   ::date}]
+                                 [:button {:text "Set Date..."
+                                           :id   ::date-btn}]
+                                 ]])
+                             (fn [dialog alert-dialog-view]
+                               (let [time-button-view (find-view alert-dialog-view ::time-btn)
+                                     date-button-view (find-view alert-dialog-view ::date-btn)
+                                     name-text-view (find-view alert-dialog-view ::name)
+                                     time-text-view (find-view alert-dialog-view ::time)
+                                     date-text-view (find-view alert-dialog-view ::date)
+                                     dialog-confirm-button (.getButton dialog (. DialogInterface BUTTON_POSITIVE))]
+
+                                 (config time-button-view :on-click (fn [_] (show-picker activity (time-picker activity time-text-view) "timePicker")))
+                                 (config date-button-view :on-click (fn [_] (show-picker activity (date-picker activity date-text-view) "datePicker")))
+
+                                 (config dialog-confirm-button :on-click (fn [_]
+                                                                           (add-event date-text-view time-text-view name-text-view)
+                                                                           (.dismiss dialog))))))
+                           "alertDialog"))}]
    [:list-view {:id                   ::days
                 :draw-selector-on-top true
                 :adapter              (make-date-adapter)}]])
 
-(defn get-elmt [activity elmt]
-  (str (.getText ^TextView (find-view activity elmt))))
+(defn set-elmt-text [view s] (on-ui (config view :text s)))
 
-(defn set-elmt-text [activity elmt s]
-  (on-ui (config (find-view activity elmt) :text s)))
-
-(defn update-ui [activity]
-  (set-elmt-text activity ::name ""))
-
-(defn add-event [activity]
-  (let [date-key (try
-                   (read-string (get-elmt activity ::date))
+(defn add-event [date-view time-view name-view]
+  (let [
+        date-key (try
+                   (read-string (.getText ^TextView date-view))
                    (catch RuntimeException e "Date string is empty!"))
         time-key (try
-                   (read-string (get-elmt activity ::time))
+                   (read-string (.getText ^TextView time-view))
                    (catch RuntimeException e "Time string is empty!"))]
     (when (number? date-key)
-      (add-to-listing (get-elmt activity ::name) date-key time-key)
-      (update-ui activity))))
+      (add-to-listing (.getText ^TextView name-view) date-key time-key))))
 
-(defn date-picker [activity]
+(defn date-picker [activity view]
   (proxy [DialogFragment DatePickerDialog$OnDateSetListener] []
     (onCreateDialog [_]
       (let [c (Calendar/getInstance)
@@ -162,16 +185,24 @@
             day (.get c Calendar/DAY_OF_MONTH)]
         (DatePickerDialog. activity this year month day)))
     (onDateSet [_ year month day]
-      (set-elmt-text activity ::date
-                     (format "%d%02d%02d" year (inc month) day)))))
+      (set-elmt-text view (format "%d%02d%02d" year (inc month) day)))))
 
-(defn time-picker [activity]
+(defn alert-dialog [activity options view-fn update-view-fn]
+  (proxy [DialogFragment] []
+    (onCreateDialog [_]
+      (let [alert-dialog-view (make-ui activity (view-fn))]
+        (doto
+          (-> (alert-dialog-builder activity options) .create)
+          (.setView (make-ui activity alert-dialog-view))
+          (.show)
+          (update-view-fn alert-dialog-view))))));needs to run after set
+
+(defn time-picker [activity view]
   (proxy [DialogFragment TimePickerDialog$OnTimeSetListener] []
     (onCreateDialog [_]
       (TimePickerDialog. activity this 0 0 true))
     (onTimeSet [_ hourOfDay minute]
-      (set-elmt-text activity ::time
-                     (format "%d" (+ (* hourOfDay 60) minute))))))
+      (set-elmt-text view (format "%d" (+ (* hourOfDay 60) minute))))))
 
 (defactivity com.gt.metime.MainActivity
              :key :main

@@ -15,7 +15,6 @@
                (- (.toSeconds TimeUnit/MILLISECONDS millis) (.toSeconds TimeUnit/MINUTES (.toMinutes TimeUnit/MILLISECONDS millis))))))
 
 (defn format-time-to-millis [time-str] (.getTime (.parse simple-time-format time-str)))
-
 ;end time
 
 ;date

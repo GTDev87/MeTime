@@ -1,6 +1,5 @@
 (ns com.gt.metime.listing
-  (:import [android.os SystemClock])
-           )
+  (:import [android.os SystemClock]))
 
 ; interacting with listing atom
 (def listing (atom (sorted-map)))

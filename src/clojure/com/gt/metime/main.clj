@@ -9,7 +9,7 @@
             [clojure.string :refer [join]]
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]]
-            [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis]]
+            [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis stored-to-readable-date readable-to-stored-date]]
             [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task]])
   (:import [android.os SystemClock CountDownTimer]
            [android.widget CursorAdapter TextView LinearLayout Chronometer Chronometer$OnChronometerTickListener]
@@ -85,7 +85,7 @@
 
         ;mutates the viz
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
-        (config date-text-view :text (str (:date task)))
+        (config date-text-view :text (stored-to-readable-date (str (:date task))))
 
         (.stop event-chonometer)
 
@@ -94,7 +94,6 @@
           ((fn []
              (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (:base @timer-context)]))
              (.setBase event-chonometer (:base @timer-context))
-
              (.start event-chonometer)
              (config event-button-view :text "Stop")
              (stop-timer-set event-chonometer event-button-view timer-context)))
@@ -168,7 +167,7 @@
 (defn add-event [date-view time-view name-view]
   (let [
         date-key (try
-                   (read-string (.getText ^TextView date-view))
+                   (read-string  (readable-to-stored-date (.getText ^TextView date-view)))
                    (catch RuntimeException e "Date string is empty!"))
         time-key (try
                    (read-string (.getText ^TextView time-view))
@@ -185,7 +184,7 @@
             day (.get c Calendar/DAY_OF_MONTH)]
         (DatePickerDialog. activity this year month day)))
     (onDateSet [_ year month day]
-      (set-elmt-text view (format "%d%02d%02d" year (inc month) day)))))
+      (set-elmt-text view (stored-to-readable-date (format "%d%02d%02d" year (inc month) day))))))
 
 (defn alert-dialog [activity options view-fn update-view-fn]
   (proxy [DialogFragment] []

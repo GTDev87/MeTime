@@ -28,25 +28,23 @@
 (defn show-picker [activity picker picker-type]
   (. picker show (. activity getFragmentManager) picker-type))
 
-(declare start-timer-set)
-(declare stop-timer-set)
+(declare start-timer)
+(declare stop-timer)
 
 (defrecord TimerContext [running offset base])
 
-(defn stop-timer-set [event-chonometer event-button-view timer-context]
-  (config event-button-view :text "Stop")
-  (config event-button-view :on-click (fn [_]
-                                        (.stop event-chonometer)
-                                        (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
-                                        (start-timer-set event-chonometer event-button-view timer-context))))
-
-(defn start-timer-set [event-chonometer event-button-view timer-context]
+(defn start-timer [event-chonometer event-button-view timer-context]
+  (.stop event-chonometer)
   (config event-button-view :text "Start")
-  (config event-button-view :on-click (fn [_]
-                                        (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (+ (SystemClock/elapsedRealtime) (:offset @timer-context))]))
-                                        (.setBase event-chonometer (:base @timer-context))
-                                        (.start event-chonometer)
-                                        (stop-timer-set event-chonometer event-button-view timer-context))))
+  (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
+  (config event-button-view :on-click (fn [_] (stop-timer event-chonometer event-button-view timer-context))))
+
+(defn stop-timer [event-chonometer event-button-view timer-context]
+  (reset! timer-context (apply ->TimerContext [true (:offset @timer-context)  (+ (SystemClock/elapsedRealtime) (:offset @timer-context))]))
+  (.setBase event-chonometer (:base @timer-context))
+  (config event-button-view :text "Stop")
+  (.start event-chonometer)
+  (config event-button-view :on-click (fn [_] (start-timer event-chonometer event-button-view timer-context))))
 
 (defelement :chronometer
             :classname android.widget.Chronometer
@@ -96,11 +94,15 @@
              (.setBase event-chonometer (:base @timer-context))
              (.start event-chonometer)
              (config event-button-view :text "Stop")
-             (stop-timer-set event-chonometer event-button-view timer-context)))
+
+             (config event-button-view :on-click (fn [_] (start-timer event-chonometer event-button-view timer-context)))
+             ))
           ((fn []
-             (config event-button-view :text "Start")
              (config event-chonometer :text (millis-to-format-time (* (:offset @timer-context) -1)))
-             (start-timer-set event-chonometer event-button-view timer-context))))
+             (config event-button-view :text "Start")
+
+             (config event-button-view :on-click (fn [_] (stop-timer event-chonometer event-button-view timer-context)))
+             )))
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))
 

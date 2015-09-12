@@ -10,7 +10,7 @@
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]]
             [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis stored-to-readable-date readable-to-stored-date]]
-            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task]])
+            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task update-me-time-offset!]])
   (:import [android.os SystemClock CountDownTimer]
            [android.widget CursorAdapter TextView LinearLayout Chronometer Chronometer$OnChronometerTickListener]
            [java.util Calendar]
@@ -106,8 +106,10 @@
 
         (config event-delete-button-view :on-click (fn [_]
                                                      (.stop event-chonometer)
-                                                     (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
-                                                     (remove-from-listing (:date task) (:date-index task))))))
+                                                     (let [added-time (if (:running @timer-context) (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (:offset @timer-context) )]
+                                                       (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
+                                                       (update-me-time-offset! (get @listing (:date task)) added-time)
+                                                       (remove-from-listing (:date task) (:date-index task)))))))
     listing
     sorted-map-array-to-array-task))
 

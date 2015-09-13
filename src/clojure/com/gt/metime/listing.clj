@@ -25,6 +25,11 @@
 (defn fn-with-calculate-me-time [the-fn]
   (fn [array element] (calculate-me-time (the-fn array element))))
 
+(defn start-me-time! [array]
+  (let [{:keys [_ element]}  (get-me-time-element-and-index array)
+        timer-context-metime (nth element 2)]
+    (if (:running @timer-context-metime) () (reset! timer-context-metime (apply ->TimerContext [true (:offset @timer-context-metime) (+ (SystemClock/elapsedRealtime) (:offset @timer-context-metime))])))))
+
 (defn update-me-time-offset! [array added-time]
   (let [{:keys [_ element]}  (get-me-time-element-and-index array)
         timer-context-metime (nth element 2)]

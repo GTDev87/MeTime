@@ -10,7 +10,7 @@
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]]
             [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis stored-to-readable-date readable-to-stored-date]]
-            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing! sorted-map-array-to-array-task update-me-time-offset!]])
+            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing! sorted-map-array-to-array-task update-me-time-offset! start-me-time!]])
   (:import [android.os SystemClock CountDownTimer]
            [android.widget CursorAdapter TextView LinearLayout Chronometer Chronometer$OnChronometerTickListener]
            [java.util Calendar]
@@ -34,7 +34,6 @@
 (defrecord TimerContext [running offset base])
 
 (defn stop-all-timers [date-time]
-
   (doall
     (map
       (fn [task]
@@ -45,6 +44,7 @@
 
 (defn stop-timer [task event-chonometer event-button-view timer-context]
   (config event-button-view :text "Start")
+  (config event-button-view :visibility View/VISIBLE)
   (.stop event-chonometer)
 
   (if (:running @timer-context) (reset! timer-context (apply ->TimerContext [false (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:base @timer-context)])) ())
@@ -54,13 +54,12 @@
                                         (start-timer task event-chonometer event-button-view timer-context))))
 
 (defn start-timer [task event-chonometer event-button-view timer-context]
-
-  (config event-button-view :text "Stop")
+  (config event-button-view :text "")
+  (config event-button-view :visibility View/GONE)
   (if (:running @timer-context) () (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (+ (SystemClock/elapsedRealtime) (:offset @timer-context))])))
   (.setBase event-chonometer (:base @timer-context))
 
-  (.start event-chonometer)
-  (config event-button-view :on-click (fn [_] (stop-timer task event-chonometer event-button-view timer-context))))
+  (.start event-chonometer))
 
 (defelement :chronometer
             :classname android.widget.Chronometer
@@ -113,8 +112,9 @@
 
         (config event-delete-button-view :on-click (fn [_]
                                                      (.stop event-chonometer)
-                                                     (let [added-time (if (:running @timer-context) (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (:offset @timer-context))]
-                                                       (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
+                                                     (let [added-time (if (:running @timer-context) (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:offset @timer-context))]
+                                                       (if (:running @timer-context) (start-me-time! (get @listing (:date task))) ())
+                                                       (reset! timer-context (apply ->TimerContext [false (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:base @timer-context)]))
                                                        (update-me-time-offset! (get @listing (:date task)) added-time)
                                                        (remove-from-listing! (:date task) (:date-index task)))))))
     listing

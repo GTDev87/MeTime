@@ -40,8 +40,9 @@
 (defn remove-element-from-vec [date-list index]
   (calculate-me-time (vec (concat (subvec date-list 0 index) (subvec date-list (+ index 1))))))
 
-(defn remove-from-listing [date-key date-index]
-  (swap! listing update-in [date-key] (fn [date-list] (remove-element-from-vec date-list date-index)  )))
+(defn remove-from-listing! [date-key date-index]
+  (swap! listing update-in [date-key] (fn [date-list] (remove-element-from-vec date-list date-index))))
+
 ; end interacting with listing atom
 
 ; parsing listing

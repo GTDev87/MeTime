@@ -10,7 +10,7 @@
             [neko.find-view :refer [find-view]]
             [neko.threading :refer [on-ui]]
             [com.gt.metime.time :refer [millis-to-format-time format-time-to-millis stored-to-readable-date readable-to-stored-date]]
-            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing sorted-map-array-to-array-task update-me-time-offset!]])
+            [com.gt.metime.listing :refer [listing add-to-listing remove-from-listing! sorted-map-array-to-array-task update-me-time-offset!]])
   (:import [android.os SystemClock CountDownTimer]
            [android.widget CursorAdapter TextView LinearLayout Chronometer Chronometer$OnChronometerTickListener]
            [java.util Calendar]
@@ -33,19 +33,34 @@
 
 (defrecord TimerContext [running offset base])
 
-(defn start-timer [event-chonometer event-button-view timer-context]
+(defn stop-all-timers [date-time]
+
+  (doall
+    (map
+      (fn [task]
+        (let [timer-context (nth task 2)]
+          (if (:running @timer-context) (reset! timer-context (apply ->TimerContext [false (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:base @timer-context)])) ())))
+      (get @listing date-time)))
+  (reset! listing @listing))                                ; to trigger the update... crappy i know
+
+(defn stop-timer [task event-chonometer event-button-view timer-context]
   (config event-button-view :text "Start")
   (.stop event-chonometer)
-  (if (:running @timer-context) (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)])) ())
-  (config event-button-view :on-click (fn [_] (stop-timer event-chonometer event-button-view timer-context))))
 
-(defn stop-timer [event-chonometer event-button-view timer-context]
+  (if (:running @timer-context) (reset! timer-context (apply ->TimerContext [false (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:base @timer-context)])) ())
+
+  (config event-button-view :on-click (fn [_]
+                                        (stop-all-timers (:date task)) ; stop other timers only on click
+                                        (start-timer task event-chonometer event-button-view timer-context))))
+
+(defn start-timer [task event-chonometer event-button-view timer-context]
+
   (config event-button-view :text "Stop")
-  (if (:running @timer-context) () (reset! timer-context (apply ->TimerContext [true (:offset @timer-context)  (+ (SystemClock/elapsedRealtime) (:offset @timer-context))])))
+  (if (:running @timer-context) () (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (+ (SystemClock/elapsedRealtime) (:offset @timer-context))])))
   (.setBase event-chonometer (:base @timer-context))
 
   (.start event-chonometer)
-  (config event-button-view :on-click (fn [_] (start-timer event-chonometer event-button-view timer-context))))
+  (config event-button-view :on-click (fn [_] (stop-timer task event-chonometer event-button-view timer-context))))
 
 (defelement :chronometer
             :classname android.widget.Chronometer
@@ -82,6 +97,9 @@
 
         (.setOnChronometerTickListener event-chonometer (get-chronometer-listener))
 
+        (.println System/out (str "(:name task) = " (:name task)))
+        (.println System/out (str "(:running @timer-context) = " (:running @timer-context)))
+
         ;mutates the viz
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
         (config date-text-view :text (stored-to-readable-date (str (:date task))))
@@ -89,16 +107,16 @@
         (.stop event-chonometer)
         (config event-chonometer :text (millis-to-format-time (* (:offset @timer-context) -1)))
 
-        ((if (:running @timer-context) stop-timer start-timer) event-chonometer event-button-view timer-context)
+        ((if (:running @timer-context) start-timer stop-timer) task event-chonometer event-button-view timer-context)
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))
 
         (config event-delete-button-view :on-click (fn [_]
                                                      (.stop event-chonometer)
-                                                     (let [added-time (if (:running @timer-context) (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (:offset @timer-context) )]
+                                                     (let [added-time (if (:running @timer-context) (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (:offset @timer-context))]
                                                        (reset! timer-context (apply ->TimerContext [false (- (.getBase event-chonometer) (SystemClock/elapsedRealtime)) (.getBase event-chonometer)]))
                                                        (update-me-time-offset! (get @listing (:date task)) added-time)
-                                                       (remove-from-listing (:date task) (:date-index task)))))))
+                                                       (remove-from-listing! (:date task) (:date-index task)))))))
     listing
     sorted-map-array-to-array-task))
 
@@ -158,7 +176,7 @@
 (defn add-event [date-view time-view name-view]
   (let [
         date-key (try
-                   (read-string  (readable-to-stored-date (.getText ^TextView date-view)))
+                   (read-string (readable-to-stored-date (.getText ^TextView date-view)))
                    (catch RuntimeException e "Date string is empty!"))
         time-key (try
                    (read-string (.getText ^TextView time-view))
@@ -185,7 +203,7 @@
           (-> (alert-dialog-builder activity options) .create)
           (.setView (make-ui activity alert-dialog-view))
           (.show)
-          (update-view-fn alert-dialog-view))))));needs to run after set
+          (update-view-fn alert-dialog-view))))))           ;needs to run after set
 
 (defn time-picker [activity view]
   (proxy [DialogFragment TimePickerDialog$OnTimeSetListener] []

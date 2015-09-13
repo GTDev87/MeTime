@@ -42,20 +42,16 @@
       (get @listing date-time)))
   (reset! listing @listing))                                ; to trigger the update... crappy i know
 
-(defn stop-timer [task event-chonometer event-button-view timer-context]
-  (config event-button-view :text "Start")
-  (config event-button-view :visibility View/VISIBLE)
+(defn stop-timer [task event-chonometer event-linear-layout-view timer-context]
   (.stop event-chonometer)
 
   (if (:running @timer-context) (reset! timer-context (apply ->TimerContext [false (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:base @timer-context)])) ())
 
-  (config event-button-view :on-click (fn [_]
+  (config event-linear-layout-view :on-click (fn [_]
                                         (stop-all-timers (:date task)) ; stop other timers only on click
-                                        (start-timer task event-chonometer event-button-view timer-context))))
+                                        (start-timer task event-chonometer event-linear-layout-view timer-context))))
 
-(defn start-timer [task event-chonometer event-button-view timer-context]
-  (config event-button-view :text "")
-  (config event-button-view :visibility View/GONE)
+(defn start-timer [_ event-chonometer _ timer-context]
   (if (:running @timer-context) () (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (+ (SystemClock/elapsedRealtime) (:offset @timer-context))])))
   (.setBase event-chonometer (:base @timer-context))
 
@@ -82,7 +78,6 @@
         [:text-view {:id ::event-tv}]
         [:text-view {:id ::goal-tv}]
         [:chronometer {:id ::time-tv}]
-        [:button {:id ::event-btn}]
         [:button {:id   ::delete-btn
                   :text "del"}]]])
     (fn [_ view _ task]
@@ -90,11 +85,12 @@
             event-linear-layout-view (find-view view ::event-ll)
             event-text-view (find-view event-linear-layout-view ::event-tv)
             event-chonometer (find-view event-linear-layout-view ::time-tv)
-            event-button-view (find-view event-linear-layout-view ::event-btn)
             event-delete-button-view (find-view event-linear-layout-view ::delete-btn)
             timer-context (:timer-context task)]
 
         (.setOnChronometerTickListener event-chonometer (get-chronometer-listener))
+        (.setClickable event-linear-layout-view true)
+        (config event-linear-layout-view :on-click (fn [_] (.println System/out "clicked ll")))
 
         (.println System/out (str "(:name task) = " (:name task)))
         (.println System/out (str "(:running @timer-context) = " (:running @timer-context)))
@@ -106,7 +102,7 @@
         (.stop event-chonometer)
         (config event-chonometer :text (millis-to-format-time (* (:offset @timer-context) -1)))
 
-        ((if (:running @timer-context) start-timer stop-timer) task event-chonometer event-button-view timer-context)
+        ((if (:running @timer-context) start-timer stop-timer) task event-chonometer event-linear-layout-view timer-context)
 
         (config event-text-view :text (str (:name task) " (Goal: " (millis-to-format-time (* 1000 60 (:duration task))) ") "))
 

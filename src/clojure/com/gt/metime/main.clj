@@ -43,6 +43,7 @@
   (reset! listing @listing))                                ; to trigger the update... crappy i know
 
 (defn stop-timer [task event-chonometer event-linear-layout-view timer-context]
+  (config (find-view event-linear-layout-view ::spinner) :visibility View/GONE)
   (.stop event-chonometer)
 
   (if (:running @timer-context) (reset! timer-context (apply ->TimerContext [false (- (:base @timer-context) (SystemClock/elapsedRealtime)) (:base @timer-context)])) ())
@@ -51,7 +52,8 @@
                                         (stop-all-timers (:date task)) ; stop other timers only on click
                                         (start-timer task event-chonometer event-linear-layout-view timer-context))))
 
-(defn start-timer [_ event-chonometer _ timer-context]
+(defn start-timer [_ event-chonometer event-linear-layout-view timer-context]
+  (config (find-view event-linear-layout-view ::spinner) :visibility View/VISIBLE)
   (if (:running @timer-context) () (reset! timer-context (apply ->TimerContext [true (:offset @timer-context) (+ (SystemClock/elapsedRealtime) (:offset @timer-context))])))
   (.setBase event-chonometer (:base @timer-context))
 
@@ -75,6 +77,7 @@
        [:linear-layout {:id          ::event-ll
                         :id-holder   true
                         :orientation :horizontal}
+        [:progress-bar {:id ::spinner}]
         [:text-view {:id ::event-tv}]
         [:text-view {:id ::goal-tv}]
         [:chronometer {:id ::time-tv}]
@@ -90,10 +93,6 @@
 
         (.setOnChronometerTickListener event-chonometer (get-chronometer-listener))
         (.setClickable event-linear-layout-view true)
-        (config event-linear-layout-view :on-click (fn [_] (.println System/out "clicked ll")))
-
-        (.println System/out (str "(:name task) = " (:name task)))
-        (.println System/out (str "(:running @timer-context) = " (:running @timer-context)))
 
         ;mutates the viz
         (config date-text-view :visibility (if (= (:date-index task) 0) View/VISIBLE View/GONE))
